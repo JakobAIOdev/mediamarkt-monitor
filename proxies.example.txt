@@ -1,0 +1,4 @@
+# One proxy per line. Replace the examples with your proxies.
+# host:port:user:pass
+proxy.example:8080:username:password
+# URLs also work: http://user:pass@host:port or socks5://host:port

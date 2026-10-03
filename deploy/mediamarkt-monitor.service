@@ -1,0 +1,18 @@
+[Unit]
+Description=MediaMarkt product stock monitor
+StartLimitIntervalSec=10min
+StartLimitBurst=5
+
+[Service]
+Type=exec
+WorkingDirectory=%h/mediamarkt-monitor
+ExecStart=%h/mediamarkt-monitor/bin/mediamarkt-monitor -watch -tasks tasks.csv -proxies proxies.txt
+Restart=on-failure
+RestartSec=30s
+TimeoutStopSec=30s
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,8 @@
+logs/
+mediamarkt-monitor
+bin/
+tasks.csv
+proxies.txt
+.env
+.env.*
+!.env.example
