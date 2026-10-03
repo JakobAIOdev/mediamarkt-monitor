@@ -41,12 +41,29 @@ case "$action" in
             exit 1
         fi
         ./bin/mediamarkt-monitor -watch -tasks tasks.csv -proxies proxies.txt -validate
-        # Quotes protect spaces in unit paths; reject characters that need
-        # systemd specifier/environment expansion rather than shell escaping.
+        # ExecStart quotes protect spaces; WorkingDirectory takes a raw path.
+        # Reject characters needing systemd expansion rather than shell escaping.
         case "$root_dir" in
             *'%'*|*'$'*|*'"'*|*\\*|*'
 '*) printf '%s\n' 'Service checkout path cannot contain %, $, quotes, backslashes or newlines.' >&2; exit 1 ;;
         esac
+        if ! command -v systemd-analyze >/dev/null 2>&1; then
+            printf '%s\n' 'systemd-analyze is required to validate the service before installing it.' >&2
+            exit 1
+        fi
+        unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+        mkdir -p "$unit_dir"
+        unit_stage=$(mktemp -d "$unit_dir/.mediamarkt-monitor.XXXXXX")
+        unit_tmp="$unit_stage/$service_name"
+        trap 'rm -rf "$unit_stage"' 0
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        replacement=$(printf '%s' "$root_dir" | sed 's/[&|]/\\&/g')
+        sed "s|@MONITOR_ROOT@|$replacement|g" deploy/mediamarkt-monitor.service > "$unit_tmp"
+        if ! systemd-analyze --user verify "$unit_tmp"; then
+            printf '%s\n' 'Service validation failed; the installed unit and running monitor were left unchanged.' >&2
+            exit 1
+        fi
         service_user=$(id -un)
         if [ "$(loginctl show-user "$service_user" -p Linger --value)" != yes ]; then
             printf '%s\n' 'Enabling the user service after SSH logout and at boot (sudo may ask for your password).'
@@ -56,14 +73,6 @@ case "$action" in
                 sudo loginctl enable-linger "$service_user"
             fi
         fi
-        unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-        mkdir -p "$unit_dir"
-        unit_tmp=$(mktemp "$unit_dir/.mediamarkt-monitor.XXXXXX")
-        trap 'rm -f "$unit_tmp"' 0
-        trap 'exit 130' INT
-        trap 'exit 143' TERM
-        replacement=$(printf '%s' "$root_dir" | sed 's/[&|]/\\&/g')
-        sed "s|@MONITOR_ROOT@|$replacement|g" deploy/mediamarkt-monitor.service > "$unit_tmp"
         chmod 644 "$unit_tmp"
         mv "$unit_tmp" "$unit_dir/$service_name"
         systemctl --user daemon-reload

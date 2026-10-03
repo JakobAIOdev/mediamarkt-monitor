@@ -84,6 +84,8 @@ notification behavior and error handling. Config files are ignored by Git.
 
 On Linux, `start.sh` validates the task/proxy/webhook configuration, installs the
 systemd user service for the current checkout and starts it in the background.
+Before installation, `systemd-analyze --user verify` checks the generated unit.
+A failed check preserves the installed service and any running monitor.
 The first start may ask for your sudo password to run
 `loginctl enable-linger YOUR_USER`. Lingering keeps the user manager alive after
 logout and starts it at boot; see [systemd loginctl](https://github.com/systemd/systemd/blob/main/man/loginctl.xml).
