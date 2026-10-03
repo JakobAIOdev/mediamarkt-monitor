@@ -54,3 +54,27 @@ func TestCSVAndProxyConfigurationHonorsCancellation(t *testing.T) {
 		t.Fatalf("err=%v, output=%q", err, output.String())
 	}
 }
+
+func TestValidationMakesNoProductRequests(t *testing.T) {
+	directory := t.TempDir()
+	tasksFile, proxiesFile := filepath.Join(directory, "tasks.csv"), filepath.Join(directory, "proxies.txt")
+	if err := os.WriteFile(tasksFile, []byte("pid,region\n2087300,AT\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(proxiesFile, []byte("127.0.0.1:1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	err := Run(context.Background(), []string{"-watch", "-tasks", tasksFile, "-proxies", proxiesFile, "-validate"}, &output, io.Discard, Environment{})
+	if err != nil || !strings.Contains(output.String(), "Configuration valid") {
+		t.Fatalf("validation fetched or failed: %v, %q", err, output.String())
+	}
+	output.Reset()
+	if err := os.WriteFile(proxiesFile, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	err = Run(context.Background(), []string{"-watch", "-tasks", tasksFile, "-proxies", proxiesFile, "-validate"}, &output, io.Discard, Environment{})
+	if err == nil || !strings.Contains(err.Error(), "no proxies") || output.Len() != 0 {
+		t.Fatalf("empty proxy file accepted: %v", err)
+	}
+}

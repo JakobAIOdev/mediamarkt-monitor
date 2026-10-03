@@ -12,18 +12,20 @@ import (
 	productapi "mediamarkt-monitor/internal/product"
 )
 
-// Event is one JSON line emitted by a worker. Stock, snapshot and permanent
+// Event is a structured update emitted by a worker. Stock, snapshot and permanent
 // notification failure events can include the full product data.
 type Event struct {
-	Time         time.Time       `json:"time"`
-	PID          string          `json:"pid"`
-	Country      string          `json:"country"`
-	Event        string          `json:"event"`
-	Attempt      int             `json:"attempt"`
-	Availability string          `json:"availability,omitempty"`
-	Error        string          `json:"error,omitempty"`
-	RetryIn      string          `json:"retry_in,omitempty"`
-	Product      json.RawMessage `json:"product,omitempty"`
+	Time              time.Time       `json:"time"`
+	PID               string          `json:"pid"`
+	Country           string          `json:"country"`
+	Event             string          `json:"event"`
+	Attempt           int             `json:"attempt"`
+	Availability      string          `json:"availability,omitempty"`
+	Error             string          `json:"error,omitempty"`
+	RetryIn           string          `json:"retry_in,omitempty"`
+	Product           json.RawMessage `json:"product,omitempty"`
+	ConsecutiveErrors int             `json:"consecutive_errors,omitempty"`
+	NotificationFor   string          `json:"notification_for,omitempty"`
 }
 
 func checkUntilInStock(ctx context.Context, interval time.Duration,

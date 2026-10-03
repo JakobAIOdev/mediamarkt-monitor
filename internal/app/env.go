@@ -11,8 +11,9 @@ import (
 // Environment contains the supported environment configuration. Empty values
 // disable the webhook or leave the default check interval in place.
 type Environment struct {
-	DiscordWebhookURL string
-	CheckInterval     string
+	DiscordWebhookURL   string
+	CheckInterval       string
+	ErrorAlertThreshold string
 }
 
 // LoadEnvironment reads an optional .env file without changing process state.
@@ -37,7 +38,8 @@ func LoadEnvironment(path string, lookup func(string) (string, bool)) (Environme
 		return values[key]
 	}
 	return Environment{
-		DiscordWebhookURL: get("DISCORD_WEBHOOK_URL"),
-		CheckInterval:     get("CHECK_INTERVAL"),
+		DiscordWebhookURL:   get("DISCORD_WEBHOOK_URL"),
+		CheckInterval:       get("CHECK_INTERVAL"),
+		ErrorAlertThreshold: get("ERROR_ALERT_THRESHOLD"),
 	}, nil
 }

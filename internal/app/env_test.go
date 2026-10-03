@@ -11,13 +11,13 @@ import (
 
 func TestDotEnvLoadingAndProcessOverrides(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
-	content := "# Config\nCHECK_INTERVAL=\"45s\" # delay\nexport DISCORD_WEBHOOK_URL='https://discord.com/api/webhooks/123/test-token'\n"
+	content := "# Config\nCHECK_INTERVAL=\"45s\" # delay\nERROR_ALERT_THRESHOLD=7\nexport DISCORD_WEBHOOK_URL='https://discord.com/api/webhooks/123/test-token'\n"
 	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 	noVariables := func(string) (string, bool) { return "", false }
 	env, err := LoadEnvironment(path, noVariables)
-	if err != nil || env.CheckInterval != "45s" || env.DiscordWebhookURL != "https://discord.com/api/webhooks/123/test-token" {
+	if err != nil || env.CheckInterval != "45s" || env.ErrorAlertThreshold != "7" || env.DiscordWebhookURL != "https://discord.com/api/webhooks/123/test-token" {
 		t.Fatal("quoted .env configuration was not loaded")
 	}
 	env, err = LoadEnvironment(path, func(key string) (string, bool) {
@@ -35,6 +35,22 @@ func TestDotEnvLoadingAndProcessOverrides(t *testing.T) {
 	env, err = LoadEnvironment(filepath.Join(t.TempDir(), ".env"), noVariables)
 	if err != nil || env != (Environment{}) {
 		t.Fatal("missing optional .env should use defaults")
+	}
+}
+
+func TestOutputAndAlertThresholdValidation(t *testing.T) {
+	for _, value := range []string{"0", "-1", "private-token", "1.5"} {
+		_, _, err := parseOptions(nil, io.Discard, Environment{ErrorAlertThreshold: value})
+		if err == nil || !strings.Contains(err.Error(), "ERROR_ALERT_THRESHOLD") || strings.Contains(err.Error(), value) {
+			t.Fatalf("unsafe threshold error: %v", err)
+		}
+	}
+	opts, _, err := parseOptions([]string{"-watch", "-output", "json"}, io.Discard, Environment{ErrorAlertThreshold: "7"})
+	if err != nil || opts.alertAfter != 7 || opts.outputFormat != "json" {
+		t.Fatalf("opts=%+v, err=%v", opts, err)
+	}
+	if _, _, err := parseOptions([]string{"-output", "invalid"}, io.Discard, Environment{}); err == nil {
+		t.Fatal("invalid output mode accepted")
 	}
 }
 

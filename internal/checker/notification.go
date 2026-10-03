@@ -35,7 +35,7 @@ func NotifyUntilSent(ctx context.Context, event Event, notifier Notifier, emit f
 			return err
 		}
 		delay := notificationRetryDelay(attempt, failure.RetryAfter)
-		if err := emit(Event{Time: time.Now().UTC(), PID: event.PID, Country: event.Country, Event: "notification_retry", Attempt: attempt, Error: err.Error(), RetryIn: delay.String()}); err != nil {
+		if err := emit(Event{Time: time.Now().UTC(), PID: event.PID, Country: event.Country, Event: "notification_retry", NotificationFor: event.Event, Attempt: attempt, Error: err.Error(), RetryIn: delay.String()}); err != nil {
 			return err
 		}
 		if err := wait(ctx, delay); err != nil {

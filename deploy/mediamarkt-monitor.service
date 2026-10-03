@@ -5,8 +5,8 @@ StartLimitBurst=5
 
 [Service]
 Type=exec
-WorkingDirectory=%h/mediamarkt-monitor
-ExecStart=%h/mediamarkt-monitor/bin/mediamarkt-monitor -watch -tasks tasks.csv -proxies proxies.txt
+WorkingDirectory="@MONITOR_ROOT@"
+ExecStart="@MONITOR_ROOT@/bin/mediamarkt-monitor" -watch -tasks tasks.csv -proxies proxies.txt
 Restart=on-failure
 RestartSec=30s
 TimeoutStopSec=30s

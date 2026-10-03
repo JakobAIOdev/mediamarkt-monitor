@@ -140,6 +140,9 @@ func (n *Notifier) Notify(ctx context.Context, event checker.Event) error {
 }
 
 func discordPayload(event checker.Event) ([]byte, error) {
+	if event.Event == "monitor_warning" || event.Event == "monitor_recovered" || event.Event == "monitor_failed" {
+		return monitorPayload(event)
+	}
 	var product struct {
 		Name   string          `json:"name"`
 		URL    string          `json:"url"`
@@ -192,7 +195,7 @@ func discordPayload(event checker.Event) ([]byte, error) {
 		"fields": []map[string]any{
 			{"name": "PID", "value": event.PID, "inline": true},
 			{"name": "Region", "value": strings.ToUpper(event.Country), "inline": true},
-			{"name": "Preis", "value": truncateDiscordText(price, 1024), "inline": true},
+			{"name": "Price", "value": truncateDiscordText(price, 1024), "inline": true},
 		},
 	}
 	var images []string
@@ -208,6 +211,33 @@ func discordPayload(event checker.Event) ([]byte, error) {
 		}
 	}
 	return json.Marshal(map[string]any{"embeds": []any{embed}, "allowed_mentions": map[string]any{"parse": []string{}}})
+}
+
+func monitorPayload(event checker.Event) ([]byte, error) {
+	title, description, color := "Monitor degraded", "Product checks keep failing. Monitoring continues and proxies keep rotating.", 16753920
+	if event.Event == "monitor_recovered" {
+		title, description, color = "Monitor recovered", "Product requests are working again.", 5763719
+	} else if event.Event == "monitor_failed" {
+		title, description, color = "Monitor failed", "The monitor could not start or finished with an error. Check the server logs and configuration.", 15548997
+	}
+	fields := make([]map[string]any, 0, 5)
+	if event.PID != "" {
+		fields = append(fields, map[string]any{"name": "Task", "value": strings.ToUpper(event.Country) + " / " + event.PID, "inline": true})
+	}
+	if event.ConsecutiveErrors > 0 {
+		fields = append(fields, map[string]any{"name": "Consecutive errors", "value": fmt.Sprint(event.ConsecutiveErrors), "inline": true})
+	}
+	if event.RetryIn != "" {
+		fields = append(fields, map[string]any{"name": "Next check", "value": event.RetryIn, "inline": true})
+	}
+	if event.Error != "" {
+		fields = append(fields, map[string]any{"name": "Error", "value": truncateDiscordText(event.Error, 1024)})
+	}
+	return json.Marshal(map[string]any{
+		"embeds": []any{map[string]any{"title": title, "description": description, "color": color,
+			"fields": fields, "timestamp": event.Time.UTC().Format(time.RFC3339)}},
+		"allowed_mentions": map[string]any{"parse": []string{}},
+	})
 }
 
 func truncateDiscordText(text string, limit int) string {

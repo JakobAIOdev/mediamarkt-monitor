@@ -154,3 +154,23 @@ func TestDiscordTextLimitPreservesUnicode(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestMonitorAlertsDoNotRequireProductData(t *testing.T) {
+	for _, kind := range []string{"monitor_warning", "monitor_recovered", "monitor_failed"} {
+		event := checker.Event{Time: time.Now(), PID: "2087300", Country: "at", Event: kind, Error: "proxy file contains no proxies", ConsecutiveErrors: 5, RetryIn: "5m0s"}
+		payload, err := discordPayload(event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var message struct {
+			Embeds []struct {
+				Title  string
+				Fields []struct{ Name, Value string }
+			}
+			AllowedMentions struct{ Parse []string } `json:"allowed_mentions"`
+		}
+		if err := json.Unmarshal(payload, &message); err != nil || len(message.Embeds) != 1 || len(message.Embeds[0].Fields) != 4 || len(message.AllowedMentions.Parse) != 0 || message.AllowedMentions.Parse == nil {
+			t.Fatalf("invalid %s alert: %s (%v)", kind, payload, err)
+		}
+	}
+}
