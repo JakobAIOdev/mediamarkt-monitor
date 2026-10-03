@@ -1,12 +1,12 @@
-# Auf dem Server betreiben
+# Running on a server
 
-Diese Anleitung verwendet Linux mit systemd und einen Checkout unter
-`~/mediamarkt-monitor`. Der Service läuft als dein normaler Server-Benutzer.
-Benötigt werden Git, Go ab **1.24.1** und die CA-Zertifikate des Systems
-(`ca-certificates` auf Ubuntu/Debian). Für ein privates Repository muss der
-Server über GitHub-Zugriff verfügen.
+This guide assumes Linux with systemd and a checkout at
+`~/mediamarkt-monitor`. The service runs as your regular server user.
+You need Git, Go **1.24.1 or later**, and the system CA certificates
+(`ca-certificates` on Ubuntu/Debian). For a private repository, the server
+must have access to GitHub.
 
-## Lokal committen und pushen
+## Commit and push locally
 
 ```sh
 git add .env.example .gitignore README.md SERVER.md go.mod go.sum main.go internal scripts deploy tasks.example.csv proxies.example.txt
@@ -14,13 +14,13 @@ git commit -m "Add MediaMarkt stock monitor and server setup"
 git push origin main
 ```
 
-`.env`, `tasks.csv`, `proxies.txt`, Logs und `bin/` sind von Git ausgeschlossen.
-Die echten Konfigurationsdateien richtest du auf dem Server ein. Die Vorlagen
-enthalten keine Zugangsdaten.
+`.env`, `tasks.csv`, `proxies.txt`, logs, and `bin/` are excluded from Git.
+Set up the actual configuration files on the server. The templates contain
+no credentials.
 
-## Erster Start
+## Initial setup
 
-Auf dem Server:
+On the server:
 
 ```sh
 git clone git@github.com:JakobAIOdev/mediamarkt-monitor.git ~/mediamarkt-monitor
@@ -31,35 +31,35 @@ cp proxies.example.txt proxies.txt
 chmod 600 .env tasks.csv proxies.txt
 ```
 
-Bearbeite die Dateien, bevor du startest:
+Edit these files before starting:
 
-- `.env`: `CHECK_INTERVAL=30s` und optional `DISCORD_WEBHOOK_URL`.
-- `tasks.csv`: deine PIDs und Regionen; optional eine `webhook_url` pro Task.
-- `proxies.txt`: deine echten Proxies. Entferne die Beispiel-Adressen.
+- `.env`: set `CHECK_INTERVAL=30s` and optionally `DISCORD_WEBHOOK_URL`.
+- `tasks.csv`: add your PIDs and regions, with an optional `webhook_url` per task.
+- `proxies.txt`: add your actual proxies and remove the example addresses.
 
-Falls du bereits einen Checkout hast, verwende dort `git pull --ff-only` und
-kopiere nur noch fehlende Konfigurationsdateien. Die `cp`-Befehle oben sind für
-die Ersteinrichtung und überschreiben vorhandene Dateien.
+If you already have a checkout, run `git pull --ff-only` there and copy only
+the configuration files that are missing. The `cp` commands above are for
+initial setup and will overwrite existing files.
 
 ```sh
 ./scripts/build.sh
 ./scripts/start.sh
 ```
 
-`build.sh` baut das Binary für das Betriebssystem und die Architektur des Servers.
-Ein neuer Build ersetzt das alte Binary erst nach erfolgreicher Kompilierung.
-`start.sh` startet den Watch-Modus mit `tasks.csv` und **`proxies.txt`**, lädt
-`.env` aus dem Checkout und schreibt JSON-Ereignisse ins Terminal. Eine fehlende,
-leere oder ungültige Proxy-Datei verhindert den Start.
+`build.sh` builds the binary for the server's operating system and architecture.
+A new build replaces the previous binary only after compilation succeeds.
+`start.sh` starts watch mode with `tasks.csv` and **`proxies.txt`**, loads
+`.env` from the checkout, and writes JSON events to the terminal. A missing,
+empty, or invalid proxy file prevents startup.
 
-Für einen anderen Delay kannst du weiterhin
-`./scripts/start.sh -interval 1m` verwenden. Mit Ctrl+C beendet sich der Monitor.
-Für Betrieb nach dem SSH-Logout installiere den folgenden Service.
+To override the delay, use `./scripts/start.sh -interval 1m`.
+Press Ctrl+C to stop the monitor. Install the service below to keep it running
+after you disconnect from SSH.
 
-## systemd-Service installieren
+## Install the systemd service
 
-Die Vorlage erwartet `~/mediamarkt-monitor`. Bei einem anderen Checkout-Pfad
-passe `WorkingDirectory` und `ExecStart` in der installierten Service-Datei an.
+The template expects `~/mediamarkt-monitor`. If your checkout is elsewhere,
+update `WorkingDirectory` and `ExecStart` in the installed service file.
 
 ```sh
 mkdir -p ~/.config/systemd/user
@@ -69,16 +69,16 @@ systemctl --user enable --now mediamarkt-monitor.service
 systemctl --user status mediamarkt-monitor.service
 ```
 
-Damit der Benutzer-Service auch nach dem SSH-Logout und beim Serverstart läuft:
+To run the user service after SSH logout and at server boot:
 
 ```sh
 sudo loginctl enable-linger "$USER"
 ```
 
-Linger hält den Benutzer-Service-Manager unabhängig von einer offenen Anmeldung
-aktiv. Siehe die [systemd-Dokumentation zu loginctl](https://github.com/systemd/systemd/blob/main/man/loginctl.xml).
+Lingering keeps the user service manager running without an active login
+session. See the [systemd loginctl documentation](https://github.com/systemd/systemd/blob/main/man/loginctl.xml).
 
-Logs und Steuerung:
+View logs and control the service:
 
 ```sh
 journalctl --user -u mediamarkt-monitor.service -f
@@ -86,27 +86,27 @@ systemctl --user stop mediamarkt-monitor.service
 systemctl --user start mediamarkt-monitor.service
 ```
 
-Die Befehle für die Steuerung führst du einzeln nach Bedarf aus. Nach Änderungen
-an `.env`, Tasks oder Proxies starte den Service mit
-`systemctl --user restart mediamarkt-monitor.service` neu. Diese Dateien werden
-beim Start eingelesen.
+Run the control commands individually as needed. After changing `.env`, tasks,
+or proxies, restart the service with
+`systemctl --user restart mediamarkt-monitor.service`. These files are read
+at startup.
 
-Der Service startet nach einem Fehler erneut, mit maximal fünf Starts innerhalb
-von zehn Minuten. Nach einem erfolgreichen Ende aller Tasks bleibt er beendet;
-`Restart=on-failure` startet einen normal beendeten Prozess nicht erneut. Siehe
+The service restarts after a failure, with a limit of five starts within ten
+minutes. It stays stopped after all tasks finish successfully;
+`Restart=on-failure` does not restart a process that exits normally. See
 [systemd.service](https://github.com/systemd/systemd/blob/main/man/systemd.service.xml).
-Ein Neustart des Monitors kann bereits verfügbare Produkte erneut melden,
-weil der Benachrichtigungsstatus derzeit nur für den jeweiligen Lauf gespeichert
-wird. Nach dem Beheben eines Fehlers und einer erreichten Startbegrenzung:
+Restarting the monitor can notify again for products that are already available,
+because notification state is currently stored only for the active run.
+If the start limit has been reached, fix the underlying error, then run:
 
 ```sh
 systemctl --user reset-failed mediamarkt-monitor.service
 systemctl --user start mediamarkt-monitor.service
 ```
 
-## Updates deployen
+## Deploy updates
 
-Lokal Änderungen committen und pushen. Anschließend auf dem Server:
+Commit and push your changes locally. Then run on the server:
 
 ```sh
 cd ~/mediamarkt-monitor
@@ -116,10 +116,9 @@ systemctl --user restart mediamarkt-monitor.service
 systemctl --user status mediamarkt-monitor.service
 ```
 
-Führe den Neustart nur aus, wenn Pull und Build erfolgreich waren. Der laufende
-Prozess verwendet bis zum Neustart das vorherige Binary. Die lokalen
-Konfigurationsdateien bleiben beim Pull erhalten.
+Restart only after the pull and build succeed. The running process continues
+using the previous binary until you restart it. Local configuration files
+are preserved during the pull.
 
-Wenn du die Service-Vorlage aktualisiert hast, kopiere sie zusätzlich erneut
-nach `~/.config/systemd/user/` und führe `systemctl --user daemon-reload` aus,
-bevor du den Service neu startest.
+If you updated the service template, copy it to `~/.config/systemd/user/` again
+and run `systemctl --user daemon-reload` before restarting the service.
